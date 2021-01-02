@@ -1,5 +1,14 @@
+#!/usr/bin/env python
+""" Extract game-ready rig from animation rig
+
+Animation rig has complex constraints, helper joints, while joint used for
+binding contains the model weight information. The models and joints are
+extracted maintaining only the hierarchy information. The models are then
+combined and re-bind with the same weight distribution
+"""
+
 import maya.cmds as cmds
-import util
+from utility import outliner, other
 
 mesh_sources = []
 mesh_targets = []
@@ -10,7 +19,7 @@ def extract_clean_bone():
     jnt_roots = []
     jnts = cmds.ls(type='joint')
     for jnt in jnts:
-        jnt_root = util.get_root_node(jnt, 'joint')
+        jnt_root = outliner.get_root_node(jnt, 'joint')
         if jnt_root not in jnt_roots:
             jnt_roots.append(jnt_root)
 
@@ -34,12 +43,12 @@ def extract_clean_bone():
         cmds.parent(jnt_root_dup, jnt_grp)
 
         # multiple shape under transform cause error in deleting, re-parenting
-        util.delete_hierarchy_shape(jnt_root_dup)
-        util.delete_hierarchy_except_type(jnt_root_dup, 'joint')
+        outliner.delete_hierarchy_shape(jnt_root_dup)
+        outliner.delete_hierarchy_except_type(jnt_root_dup, 'joint')
 
     # joint clean-up
     for jnt in cmds.listRelatives(jnt_grp, ad=1):
-        util.restore_channel(jnt)
+        other.restore_channel(jnt)
         cmds.makeIdentity(jnt, apply=1, t=0, r=1, s=1, n=0)
 
 
@@ -65,13 +74,12 @@ def extract_clean_mesh():
         cmds.parent(mesh_dup, mesh_grp)
 
         # mesh clean-up
-        util.restore_channel(mesh_dup)
+        other.restore_channel(mesh_dup)
         cmds.makeIdentity(mesh_dup, apply=1, t=1, r=1, s=1, n=0)
         cmds.delete(mesh_dup, constructionHistory=1)
 
-        mesh_targets.append(util.get_shape_from_transform(mesh_dup,
-                                                          check_unique_child=0)
-                            [0])
+        mesh_targets.append(outliner.get_shape_from_transform
+                            (mesh_dup, check_unique_child=0)[0])
 
 
 def transfer_weight():
@@ -92,8 +100,8 @@ def transfer_weight():
                                  normalize=1)
 
     # combine all skinned mesh
-    mesh_shapes = [util.get_shape_from_transform(transform,
-                                                 check_unique_child=0)[0]
+    mesh_shapes = [outliner.get_shape_from_transform(transform,
+                                                     check_unique_child=0)[0]
                    for transform in mesh_transforms]
     if len(mesh_shapes) > 1:
         mesh_unite = cmds.polyUniteSkinned(mesh_shapes, ch=0)[0]
